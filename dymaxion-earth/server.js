@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { buildNetLayout, xyzToLatLng, triangleBBox } = require('./geodesic');
-const { zoomForLevel, tilesForBBox, getTile, buildTilePatch, warpTriangle, canvasAvailable, latLngToPixel, TILE_SIZE } = require('./tileMapper');
+const { zoomForLevel, getTriangleTiles, getTile, buildTilePatch, warpTriangle, canvasAvailable, latLngToPixel, TILE_SIZE } = require('./tileMapper');
 const { buildSVG, renderTrianglePNG, SVG_W, SVG_H } = require('./svgBuilder');
 
 const app = express();
@@ -84,21 +84,15 @@ app.get('/generate', async (req, res) => {
     const triTiles = []; // per-triangle tile lists
 
     for (const { sphereTri } of netLayout) {
-      const coords = sphereTri.map(v => xyzToLatLng(v));
-      const lats = coords.map(c => c.lat);
-      const lngs = coords.map(c => c.lng);
-
-      // Handle antimeridian
-      let minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-      let minLat = Math.min(...lats), maxLat = Math.max(...lats);
-      if (maxLng - minLng > 180) {
-        const adjusted = lngs.map(lng => lng < 0 ? lng + 360 : lng);
-        minLng = Math.min(...adjusted);
-        maxLng = Math.max(...adjusted);
-      }
-
-      const tiles = tilesForBBox(minLat, maxLat, minLng, maxLng, zoom);
+      const triLatLng = sphereTri.map(v => {
+        const ll = xyzToLatLng(v);
+        return [ll.lat, ll.lng];
+      });
+      // getTriangleTiles handles antimeridian crossing via virtualTx —
+      // no manual bbox wrapping needed here.
+      const tiles = getTriangleTiles(triLatLng, zoom);
       triTiles.push(tiles);
+      // Deduplicate by physical tile coords; virtualTx is per-triangle.
       tiles.forEach(t => tileSet.add(`${t.z}/${t.tx}/${t.ty}`));
     }
 
@@ -153,7 +147,9 @@ app.get('/generate', async (req, res) => {
       const patchTiles = tiles.filter(t => tileBuffers.has(`${t.z}/${t.tx}/${t.ty}`));
 
       if (canvasAvailable() && outCanvas) {
-        // Build patch canvas and warp onto output
+        // Build patch canvas and warp onto output.
+        // triTiles[i] carries virtualTx for each tile; buildPatchFromBuffers
+        // uses it to place crossing tiles contiguously (no gray-band gaps).
         try {
           const patch = await buildPatchFromBuffers(patchTiles, tileBuffers, zoom);
           if (patch) {
@@ -162,7 +158,10 @@ app.get('/generate', async (req, res) => {
               const ll = xyzToLatLng(v);
               return [ll.lat, ll.lng];
             });
-            warpTriangle(ctx, patch.canvas, triLatLng, netVerts, zoom, patch.originTx, patch.originTy);
+            // Pass originVirtualTx so warpTriangle's source-pixel unwrapping
+            // matches the patch layout exactly.
+            warpTriangle(ctx, patch.canvas, triLatLng, netVerts, zoom,
+                         patch.originVirtualTx, patch.originTy);
           }
         } catch (e) {
           console.error(`[compositing] Error on tri ${i}:`, e.message);
@@ -245,12 +244,18 @@ async function buildPatchFromBuffers(tiles, tileBuffers, zoom) {
   if (!createCanvas || tiles.length === 0) return null;
 
   const { loadImage } = require('canvas');
-  const txMin = Math.min(...tiles.map(t => t.tx));
-  const txMax = Math.max(...tiles.map(t => t.tx));
+
+  // Use virtualTx (the antimeridian-unwrapped column index) for positioning.
+  // For non-crossing triangles virtualTx === tx, so nothing changes.
+  // For crossing triangles, east-side tiles have virtualTx = tx + n, placing
+  // them to the RIGHT of the west-side tiles — no gap in the canvas.
+  const vtxs = tiles.map(t => t.virtualTx !== undefined ? t.virtualTx : t.tx);
+  const vtxMin = Math.min(...vtxs);
+  const vtxMax = Math.max(...vtxs);
   const tyMin = Math.min(...tiles.map(t => t.ty));
   const tyMax = Math.max(...tiles.map(t => t.ty));
 
-  const cols = txMax - txMin + 1;
+  const cols = vtxMax - vtxMin + 1;
   const rows = tyMax - tyMin + 1;
 
   const canvas = createCanvas(cols * TILE_SIZE, rows * TILE_SIZE);
@@ -258,17 +263,21 @@ async function buildPatchFromBuffers(tiles, tileBuffers, zoom) {
   ctx.fillStyle = '#555';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  for (const { z, tx, ty } of tiles) {
-    const key = `${z}/${tx}/${ty}`;
+  for (let ti = 0; ti < tiles.length; ti++) {
+    const tile = tiles[ti];
+    const vtx = vtxs[ti];
+    const key = `${tile.z}/${tile.tx}/${tile.ty}`;
     const buf = tileBuffers.get(key);
     if (!buf) continue;
     try {
       const img = await loadImage(buf);
-      ctx.drawImage(img, (tx - txMin) * TILE_SIZE, (ty - tyMin) * TILE_SIZE);
+      ctx.drawImage(img, (vtx - vtxMin) * TILE_SIZE, (tile.ty - tyMin) * TILE_SIZE);
     } catch (e) {}
   }
 
-  return { canvas, originTx: txMin, originTy: tyMin, zoom };
+  // originVirtualTx is passed to warpTriangle so its source-pixel unwrapping
+  // uses the same origin as the canvas layout above.
+  return { canvas, originVirtualTx: vtxMin, originTy: tyMin, zoom };
 }
 
 // ─── Start server ─────────────────────────────────────────────────────────────

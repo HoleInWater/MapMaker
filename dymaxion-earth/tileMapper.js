@@ -30,11 +30,12 @@ const TILE_DELAY_MS = 50; // minimum ms between requests
 
 /**
  * Choose zoom level based on subdivision level.
+ * Bumped up by 1 vs. original for sharper imagery.
  */
 function zoomForLevel(subdivLevel) {
-  if (subdivLevel <= 2) return 4;
-  if (subdivLevel === 3) return 5;
-  return 6;
+  if (subdivLevel <= 2) return 5;
+  if (subdivLevel === 3) return 6;
+  return 7;
 }
 
 /**
@@ -47,7 +48,6 @@ function latLngToTile(lat, lng, zoom) {
   const tx = Math.floor((lng + 180) / 360 * n);
   const latRad = lat * Math.PI / 180;
   const ty = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
-  // Clamp to valid range
   return {
     tx: Math.max(0, Math.min(n - 1, tx)),
     ty: Math.max(0, Math.min(n - 1, ty)),
@@ -66,22 +66,83 @@ function tileToLatLng(tx, ty, zoom) {
 }
 
 /**
- * Get all tile XYZ coords that cover a lat/lng bounding box.
- * Returns array of {z, tx, ty}.
+ * Convert a lat to tile Y at a given zoom level.
  */
-function tilesForBBox(minLat, maxLat, minLng, maxLng, zoom) {
-  // Normalize lngs to [-180, 180]
-  minLng = ((minLng + 180) % 360) - 180;
-  maxLng = ((maxLng + 180) % 360) - 180;
-  if (maxLng < minLng) maxLng += 360; // wrap
+function latToTileY(lat, zoom) {
+  const n = Math.pow(2, zoom);
+  const latClamped = Math.max(-85, Math.min(85, lat));
+  const latRad = latClamped * Math.PI / 180;
+  return Math.max(0, Math.min(n - 1,
+    Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n)
+  ));
+}
 
-  const { tx: txMin, ty: tyMax } = latLngToTile(Math.max(-85, minLat), minLng, zoom);
-  const { tx: txMax, ty: tyMin } = latLngToTile(Math.min(85, maxLat), maxLng, zoom);
+/**
+ * Get all tile XYZ coords covering a spherical triangle, correctly handling
+ * antimeridian crossing.
+ *
+ * Antimeridian fix: instead of a simple bbox in [-180,180] space (which
+ * creates a huge gap in the tile patch for crossing triangles), we compute
+ * "virtual tile X" (vtx) by unwrapping each vertex's tile-column relative to
+ * the first vertex using the shortest-arc rule.  vtx may be < 0 or >= n;
+ * physical tx is always (vtx % n + n) % n.  The virtualTx property is stored
+ * on every returned tile so that buildPatchFromBuffers can place them
+ * contiguously without gaps.
+ *
+ * @param {Array} triLatLng - [[lat,lng],[lat,lng],[lat,lng]] in degrees
+ * @param {number} zoom
+ * @returns {Array<{z,tx,ty,virtualTx}>}
+ */
+function getTriangleTiles(triLatLng, zoom) {
+  const n = Math.pow(2, zoom);
+
+  // Compute gx in tile-column units for each vertex
+  const gxTile = triLatLng.map(([, lng]) => (lng + 180) / 360 * n);
+
+  // Unwrap so all gx values are within ±n/2 of the first vertex.
+  // This converts an antimeridian-spanning triangle from e.g.
+  //   [0.2, 15.8, 8.0]  →  [0.2, -0.2, 8.0]
+  // ensuring vtxMin..vtxMax is a tight, contiguous range.
+  const ref = gxTile[0];
+  const unwrapped = gxTile.map(gx => {
+    let d = gx - ref;
+    if (d >  n / 2) d -= n;
+    if (d < -n / 2) d += n;
+    return ref + d;
+  });
+
+  const vtxMin = Math.floor(Math.min(...unwrapped));
+  const vtxMax = Math.floor(Math.max(...unwrapped));
+
+  // Lat bounding box
+  const lats = triLatLng.map(([lat]) => lat);
+  const tyMin = latToTileY(Math.max(...lats), zoom); // north edge → smaller ty
+  const tyMax = latToTileY(Math.min(...lats), zoom); // south edge → larger ty
 
   const tiles = [];
   for (let ty = tyMin; ty <= tyMax; ty++) {
+    for (let vtx = vtxMin; vtx <= vtxMax; vtx++) {
+      const tx = ((vtx % n) + n) % n; // wrap to valid [0, n)
+      tiles.push({ z: zoom, tx, ty, virtualTx: vtx });
+    }
+  }
+  return tiles;
+}
+
+/**
+ * Legacy bbox-based tile collector (kept for reference; server.js uses
+ * getTriangleTiles instead).
+ */
+function tilesForBBox(minLat, maxLat, minLng, maxLng, zoom) {
+  const n = Math.pow(2, zoom);
+  minLng = ((minLng + 180) % 360 + 360) % 360 - 180;
+  maxLng = ((maxLng + 180) % 360 + 360) % 360 - 180;
+  if (maxLng < minLng) maxLng += 360;
+  const { tx: txMin, ty: tyMax } = latLngToTile(Math.max(-85, minLat), minLng, zoom);
+  const { tx: txMax, ty: tyMin } = latLngToTile(Math.min(85, maxLat), maxLng, zoom);
+  const tiles = [];
+  for (let ty = tyMin; ty <= tyMax; ty++) {
     for (let tx = txMin; tx <= txMax; tx++) {
-      const n = Math.pow(2, zoom);
       tiles.push({ z: zoom, tx: ((tx % n) + n) % n, ty });
     }
   }
@@ -242,20 +303,43 @@ function latLngToPixel(lat, lng, zoom, originTx, originTy) {
  * Warp the tile patch to fill a triangle in the output canvas.
  * Uses scanline rasterization with bilinear sampling from the source patch.
  *
- * @param {CanvasRenderingContext2D} outCtx  - output canvas context
- * @param {Canvas} patchCanvas               - source tile patch
- * @param {Array}  triLatLng                 - [[lat,lng],[lat,lng],[lat,lng]] sphere vertices
- * @param {Array}  triNet                    - [[x,y],[x,y],[x,y]] SVG output coords
+ * Source pixel computation uses antimeridian-safe "unwrapped gx":
+ * each vertex's tile-column is unwrapped relative to vertex 0 so the three
+ * source pixels are always contiguous — matching the virtualTx-based patch
+ * layout produced by buildPatchFromBuffers.
+ *
+ * @param {CanvasRenderingContext2D} outCtx    - output canvas context
+ * @param {Canvas} patchCanvas                 - source tile patch
+ * @param {Array}  triLatLng                   - [[lat,lng],[lat,lng],[lat,lng]]
+ * @param {Array}  triNet                      - [[x,y],[x,y],[x,y]] SVG output coords
  * @param {number} zoom
- * @param {number} originTx
- * @param {number} originTy
+ * @param {number} originVirtualTx             - min virtualTx of the patch (may be < 0)
+ * @param {number} originTy                    - min ty of the patch
  */
-function warpTriangle(outCtx, patchCanvas, triLatLng, triNet, zoom, originTx, originTy) {
+function warpTriangle(outCtx, patchCanvas, triLatLng, triNet, zoom, originVirtualTx, originTy) {
   if (!canvasAvailable) return;
+  const n = Math.pow(2, zoom);
 
-  // Source pixel coords for each triangle vertex
-  const src = triLatLng.map(([lat, lng]) => {
-    const { px, py } = latLngToPixel(lat, lng, zoom, originTx, originTy);
+  // --- Antimeridian-safe source pixel computation -------------------------
+  // Compute gx in tile-column units, then unwrap relative to vertex 0 so
+  // crossing vertices get gx values that are contiguous (not jumping by ~n).
+  const gxTile = triLatLng.map(([, lng]) => (lng + 180) / 360 * n);
+  const ref = gxTile[0];
+  const unwrappedGxTile = gxTile.map(gx => {
+    let d = gx - ref;
+    if (d >  n / 2) d -= n;
+    if (d < -n / 2) d += n;
+    return ref + d;
+  });
+
+  // Source pixel coords for each triangle vertex in the patch canvas.
+  const src = triLatLng.map(([lat], i) => {
+    const latClamped = Math.max(-85.05, Math.min(85.05, lat));
+    const latRad = latClamped * Math.PI / 180;
+    const gy = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI)
+               / 2 * n * TILE_SIZE;
+    const px = unwrappedGxTile[i] * TILE_SIZE - originVirtualTx * TILE_SIZE;
+    const py = gy - originTy * TILE_SIZE;
     return [px, py];
   });
 
@@ -415,6 +499,7 @@ module.exports = {
   latLngToTile,
   tileToLatLng,
   tilesForBBox,
+  getTriangleTiles,
   getTile,
   buildTilePatch,
   warpTriangle,
