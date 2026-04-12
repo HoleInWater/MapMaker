@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dymaxion Earth</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:     #0d0f14;
+    --surface:#161a24;
+    --border: #2a2f3d;
+    --accent: #4a9eff;
+    --accent2:#6fc3ff;
+    --text:   #e0e6f0;
+    --muted:  #7a8299;
+    --success:#3ddc84;
+    --warn:   #ffb347;
+    --error:  #ff5555;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ─────────────────────────────── */
+  .app { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header {
+    text-align: center;
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 0.95rem;
+  }
+
+  /* ── Card ────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  /* ── Controls ────────────────────────────── */
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .control-row label {
+    font-weight: 500;
+    min-width: 130px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    flex: 1;
+    min-width: 160px;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(74,158,255,0.2);
+  }
+
+  .badge {
+    background: rgba(74,158,255,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(74,158,255,0.3);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .estimate-block {
+    background: rgba(74,158,255,0.06);
+    border: 1px solid rgba(74,158,255,0.15);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+    color: var(--accent2);
+  }
+  .estimate-block strong { color: var(--text); }
+  .estimate-note { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+  .check-row input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+  .check-row label { cursor: pointer; }
+
+  /* ── Generate button ──────────────────────── */
+  #generateBtn {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--accent), #3a7ed5);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.3px;
+  }
+  #generateBtn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  #generateBtn:active:not(:disabled) { transform: translateY(0); }
+  #generateBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  /* ── Progress ────────────────────────────── */
+  #progressPanel { display: none; }
+
+  .phase-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .progress-bar-wrap {
+    background: var(--border);
+    border-radius: 6px;
+    height: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 6px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  .status-text { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
+  .counters { display: flex; gap: 20px; font-size: 0.82rem; color: var(--muted); flex-wrap: wrap; }
+  .counters span strong { color: var(--text); }
+
+  .error-msg {
+    background: rgba(255,85,85,0.1);
+    border: 1px solid rgba(255,85,85,0.3);
+    color: var(--error);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-size: 0.88rem;
+    display: none;
+  }
+
+  /* ── Preview ─────────────────────────────── */
+  #previewPanel { display: none; }
+
+  #previewImg {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #111;
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  .action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .btn {
+    padding: 9px 18px;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--border); border-color: var(--muted); }
+  .btn.primary { background: rgba(74,158,255,0.15); border-color: rgba(74,158,255,0.4); color: var(--accent2); }
+  .btn.primary:hover { background: rgba(74,158,255,0.25); }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .stat-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-box .val { font-size: 1.3rem; font-weight: 700; color: var(--accent2); }
+  .stat-box .lbl { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── Misc ────────────────────────────────── */
+  #svgFallbackNote {
+    background: rgba(255,179,71,0.08);
+    border: 1px solid rgba(255,179,71,0.25);
+    color: var(--warn);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>Dymaxion Earth</h1>
+    <p>Fuller projection with ESRI World Imagery satellite tiles</p>
+  </header>
+
+  <!-- Controls -->
+  <div class="card" id="controlsPanel">
+    <h2>Configuration</h2>
+
+    <div id="svgFallbackNote">
+      ⚠ node-canvas is not available — generating SVG-only output (no PNG preview).
+    </div>
+
+    <div class="control-row">
+      <label for="levelSlider">Subdivision level</label>
+      <input type="range" id="levelSlider" min="1" max="5" value="2" step="1">
+      <span class="badge" id="triCountBadge">→ 80 triangles</span>
+    </div>
+
+    <div class="estimate-block" id="estimateBlock">
+      <div>Estimated time: <strong id="estimateTime">~30 seconds</strong> &nbsp;·&nbsp; fetching ~<strong id="estimateTiles">280</strong> tiles</div>
+      <div class="estimate-note">Cached tiles will be reused — repeated runs are much faster.</div>
+    </div>
+
+    <div class="check-row">
+      <input type="checkbox" id="cacheCheck" checked>
+      <label for="cacheCheck">Use cached tiles if available</label>
+    </div>
+
+    <div class="check-row">
+      <input type="checkbox" id="meshCheck" checked>
+      <label for="meshCheck">Show triangle mesh in SVG output</label>
+    </div>
+
+    <button id="generateBtn">Generate Map</button>
+  </div>
+
+  <!-- Progress -->
+  <div class="card" id="progressPanel">
+    <h2>Progress</h2>
+    <div class="phase-label" id="phaseLabel">Initializing...</div>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="status-text" id="statusText">Starting...</div>
+    <div class="counters">
+      <span>Tiles: <strong id="cntTiles">0</strong> / <strong id="cntTilesTotal">?</strong></span>
+      <span>Triangles: <strong id="cntTris">0</strong> / <strong id="cntTrisTotal">?</strong></span>
+      <span>Elapsed: <strong id="cntElapsed">0s</strong></span>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Preview -->
+  <div class="card" id="previewPanel">
+    <h2>Result</h2>
+    <img id="previewImg" alt="Dymaxion Earth preview">
+    <div class="action-row">
+      <a id="dlSvg" class="btn primary" download>⬇ Download SVG</a>
+      <a id="dlPng" class="btn" download>⬇ Download PNG</a>
+      <button class="btn" id="newMapBtn">↺ Generate another</button>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+const TRI_COUNTS = { 1: 20, 2: 80, 3: 320, 4: 1280, 5: 5120 };
+const TILE_EST   = { 1: 80, 2: 280, 3: 1100, 4: 4200, 5: 16000 };
+const OVERHEAD_S = { 1: 2,  2: 5,   3: 15,   4: 60,   5: 240 };
+
+const levelSlider   = document.getElementById('levelSlider');
+const triCountBadge = document.getElementById('triCountBadge');
+const estimateTime  = document.getElementById('estimateTime');
+const estimateTiles = document.getElementById('estimateTiles');
+const generateBtn   = document.getElementById('generateBtn');
+const cacheCheck    = document.getElementById('cacheCheck');
+const meshCheck     = document.getElementById('meshCheck');
+const progressPanel = document.getElementById('progressPanel');
+const previewPanel  = document.getElementById('previewPanel');
+const controlsPanel = document.getElementById('controlsPanel');
+
+const phaseLabel  = document.getElementById('phaseLabel');
+const progressBar = document.getElementById('progressBar');
+const statusText  = document.getElementById('statusText');
+const cntTiles    = document.getElementById('cntTiles');
+const cntTilesTotal = document.getElementById('cntTilesTotal');
+const cntTris     = document.getElementById('cntTris');
+const cntTrisTotal = document.getElementById('cntTrisTotal');
+const cntElapsed  = document.getElementById('cntElapsed');
+const errorMsg    = document.getElementById('errorMsg');
+
+const previewImg  = document.getElementById('previewImg');
+const dlSvg       = document.getElementById('dlSvg');
+const dlPng       = document.getElementById('dlPng');
+const statsGrid   = document.getElementById('statsGrid');
+const newMapBtn   = document.getElementById('newMapBtn');
+const svgFallbackNote = document.getElementById('svgFallbackNote');
+
+// ── Update estimates on slider change ──────────────────────────────────────
+function updateEstimates() {
+  const lv = parseInt(levelSlider.value);
+  const tris = TRI_COUNTS[lv] || 20;
+  const tiles = TILE_EST[lv] || 80;
+  const secs = Math.round(tiles * 0.1 + (OVERHEAD_S[lv] || 2));
+
+  triCountBadge.textContent = `→ ${tris.toLocaleString()} triangles`;
+
+  let timeStr;
+  if (secs < 60) timeStr = `~${secs} seconds`;
+  else if (secs < 3600) timeStr = `~${Math.ceil(secs/60)} minutes`;
+  else timeStr = `~${(secs/3600).toFixed(1)} hours`;
+
+  estimateTime.textContent = timeStr;
+  estimateTiles.textContent = tiles.toLocaleString();
+}
+levelSlider.addEventListener('input', updateEstimates);
+updateEstimates();
+
+// ── Check canvas availability ───────────────────────────────────────────────
+fetch('/estimate?level=1').catch(() => {});
+
+// ── Generate ────────────────────────────────────────────────────────────────
+let elapsedInterval = null;
+let startTime = null;
+let currentEvtSource = null;
+
+generateBtn.addEventListener('click', () => {
+  startGeneration();
+});
+
+newMapBtn.addEventListener('click', () => {
+  previewPanel.style.display = 'none';
+  controlsPanel.style.display = 'block';
+  generateBtn.disabled = false;
+  progressPanel.style.display = 'none';
+  progressBar.style.width = '0%';
+  errorMsg.style.display = 'none';
+});
+
+function startGeneration() {
+  const level = parseInt(levelSlider.value);
+  const useCache = cacheCheck.checked;
+  const showMesh = meshCheck.checked;
+
+  generateBtn.disabled = true;
+  progressPanel.style.display = 'block';
+  previewPanel.style.display = 'none';
+  errorMsg.style.display = 'none';
+  phaseLabel.textContent = 'Initializing...';
+  progressBar.style.width = '0%';
+  statusText.textContent = 'Connecting...';
+  cntTiles.textContent = '0';
+  cntTilesTotal.textContent = '?';
+  cntTris.textContent = '0';
+  cntTrisTotal.textContent = '?';
+
+  startTime = Date.now();
+  if (elapsedInterval) clearInterval(elapsedInterval);
+  elapsedInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    cntElapsed.textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+  }, 1000);
+
+  const url = `/generate?level=${level}&cache=${useCache}&mesh=${showMesh}`;
+  if (currentEvtSource) currentEvtSource.close();
+  const es = new EventSource(url);
+  currentEvtSource = es;
+
+  es.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    handleMessage(msg);
+  };
+
+  es.onerror = () => {
+    clearInterval(elapsedInterval);
+    showError('Connection lost. Check server console for details.');
+    generateBtn.disabled = false;
+    es.close();
+  };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'start':
+      statusText.textContent = `Starting level ${msg.level} generation...`;
+      break;
+
+    case 'info':
+      if (msg.totalTiles !== undefined) cntTilesTotal.textContent = msg.totalTiles.toLocaleString();
+      if (msg.totalTris !== undefined)  cntTrisTotal.textContent  = msg.totalTris.toLocaleString();
+      if (msg.canvasMode === false)     svgFallbackNote.style.display = 'block';
+      break;
+
+    case 'progress':
+      phaseLabel.textContent  = msg.phase || '';
+      progressBar.style.width = `${msg.pct}%`;
+      statusText.textContent  = msg.status || '';
+      if (msg.tilesFetched !== undefined) cntTiles.textContent = msg.tilesFetched.toLocaleString();
+      if (msg.trisDone !== undefined)     cntTris.textContent  = msg.trisDone.toLocaleString();
+      break;
+
+    case 'done':
+      clearInterval(elapsedInterval);
+      currentEvtSource && currentEvtSource.close();
+      showResult(msg);
+      break;
+
+    case 'error':
+      clearInterval(elapsedInterval);
+      currentEvtSource && currentEvtSource.close();
+      showError(msg.message);
+      generateBtn.disabled = false;
+      break;
+  }
+}
+
+function showResult(msg) {
+  progressPanel.style.display = 'none';
+  previewPanel.style.display = 'block';
+  generateBtn.disabled = false;
+
+  // PNG preview
+  if (msg.pngFile) {
+    previewImg.src = `/output/${msg.pngFile}?t=${Date.now()}`;
+    previewImg.style.display = 'block';
+    dlPng.href = `/output/${msg.pngFile}`;
+    dlPng.download = msg.pngFile;
+    dlPng.style.display = '';
+  } else {
+    previewImg.style.display = 'none';
+    dlPng.style.display = 'none';
+  }
+
+  // SVG download
+  dlSvg.href = `/output/${msg.svgFile}`;
+  dlSvg.download = msg.svgFile;
+
+  // Stats
+  const elapsedS = Math.round(msg.elapsedMs / 1000);
+  const elapsedStr = elapsedS < 60 ? `${elapsedS}s` : `${Math.floor(elapsedS/60)}m ${elapsedS%60}s`;
+  const svgMB = (msg.svgSize / 1024 / 1024).toFixed(2);
+  const pngMB = msg.pngSize ? (msg.pngSize / 1024 / 1024).toFixed(2) : null;
+
+  const stats = [
+    { val: (msg.totalTris||0).toLocaleString(), lbl: 'Triangles' },
+    { val: (msg.tilesFetched||0).toLocaleString(), lbl: 'Tiles fetched' },
+    { val: elapsedStr, lbl: 'Time taken' },
+    { val: `${svgMB} MB`, lbl: 'SVG size' },
+  ];
+  if (pngMB) stats.push({ val: `${pngMB} MB`, lbl: 'PNG size' });
+
+  statsGrid.innerHTML = stats.map(s =>
+    `<div class="stat-box"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
+  ).join('');
+}
+
+function showError(msg) {
+  errorMsg.style.display = 'block';
+  errorMsg.textContent = '✖ Error: ' + msg;
+}
+</script>
+</body>
+</html>
