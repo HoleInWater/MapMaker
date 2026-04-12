@@ -9,11 +9,34 @@
 
 const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio ≈ 1.618
 
+// Fuller-Sadao canonical orientation: rotate all vertices so the icosahedron
+// aligns with Earth's land masses as in the published Dymaxion map.
+const FULLER_LNG_DEG = -58.28; // 58.28° west
+const FULLER_LAT_DEG =  -2.0;  // 2° south
+
+/**
+ * Shift a unit-sphere vertex by the Fuller-Sadao orientation offsets.
+ * The longitude shift is a true z-axis rotation; the latitude shift is a
+ * small spherical offset (rigid-rotation equivalent for |Δlat| ≤ 2°).
+ */
+function applyFullerRotation(v) {
+  const [x, y, z] = v;
+  const lat = Math.asin(Math.max(-1, Math.min(1, z)));
+  const lng = Math.atan2(y, x);
+  const newLat = lat + FULLER_LAT_DEG * Math.PI / 180;
+  const newLng = lng + FULLER_LNG_DEG * Math.PI / 180;
+  return [
+    Math.cos(newLat) * Math.cos(newLng),
+    Math.cos(newLat) * Math.sin(newLng),
+    Math.sin(newLat),
+  ];
+}
+
 // ─── Unit icosahedron ────────────────────────────────────────────────────────
 
 /**
- * The 12 vertices of a regular icosahedron, normalized to the unit sphere.
- * Canonical form: (0, ±1, ±φ) and cyclic permutations.
+ * The 12 vertices of a regular icosahedron, normalized to the unit sphere,
+ * then rotated into the Fuller-Sadao canonical orientation.
  */
 function makeIcosahedronVertices() {
   const raw = [
@@ -21,7 +44,7 @@ function makeIcosahedronVertices() {
     [ 1,  PHI, 0], [-1,  PHI, 0], [ 1, -PHI, 0], [-1, -PHI, 0],
     [ PHI, 0,  1], [-PHI, 0,  1], [ PHI, 0, -1], [-PHI, 0, -1],
   ];
-  return raw.map(normalize);
+  return raw.map(v => applyFullerRotation(normalize(v)));
 }
 
 /**
