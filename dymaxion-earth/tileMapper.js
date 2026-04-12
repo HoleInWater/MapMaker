@@ -356,9 +356,47 @@ function warpTriangle(outCtx, patchCanvas, triLatLng, triNet, zoom, originVirtua
   if (!canvasAvailable) return;
   const n = Math.pow(2, zoom);
 
-  // --- Antimeridian-safe source pixel computation -------------------------
-  // Compute gx in tile-column units, then unwrap relative to vertex 0 so
-  // crossing vertices get gx values that are contiguous (not jumping by ~n).
+  // Destination triangle (output SVG space)
+  const dst = triNet;
+
+  // Bounding box of destination triangle (needed for both paths below)
+  const dstXs = dst.map(p => p[0]);
+  const dstYs = dst.map(p => p[1]);
+  const x0 = Math.floor(Math.min(...dstXs));
+  const x1 = Math.ceil(Math.max(...dstXs));
+  const y0 = Math.floor(Math.min(...dstYs));
+  const y1 = Math.ceil(Math.max(...dstYs));
+  const W = x1 - x0;
+  const H = y1 - y0;
+  if (W <= 0 || H <= 0) return;
+
+  // ── Polar-face fast path ──────────────────────────────────────────────────
+  // For faces whose centroid |lat| > 60°, the three vertices span up to 360°
+  // of longitude.  Even with shortest-arc unwrapping, two of the three vertex
+  // gx values land outside the centroid-derived tile patch (which covers only
+  // ~10° of lng).  sampleBilinear clamps those out-of-range coords to the
+  // patch edges, producing exactly two colour bands → vertical stripes.
+  //
+  // Fix: skip the affine warp entirely.  Instead, scale the centroid patch to
+  // fill the triangle's bounding box and clip it to the triangle shape.
+  // This shows the correct regional imagery (Arctic/Antarctic) without stripes.
+  const centroidLat = triLatLng.reduce((s, [lat]) => s + lat, 0) / 3;
+  if (Math.abs(centroidLat) > 60) {
+    outCtx.save();
+    outCtx.beginPath();
+    outCtx.moveTo(dst[0][0], dst[0][1]);
+    outCtx.lineTo(dst[1][0], dst[1][1]);
+    outCtx.lineTo(dst[2][0], dst[2][1]);
+    outCtx.closePath();
+    outCtx.clip();
+    outCtx.drawImage(patchCanvas, x0, y0, W, H);
+    outCtx.restore();
+    return;
+  }
+
+  // ── Normal path: affine warp ──────────────────────────────────────────────
+  // Antimeridian-safe source pixel computation: unwrap gx relative to vertex 0
+  // so crossing vertices get contiguous values (no ~n jump).
   const gxTile = triLatLng.map(([, lng]) => (lng + 180) / 360 * n);
   const ref = gxTile[0];
   const unwrappedGxTile = gxTile.map(gx => {
@@ -379,23 +417,8 @@ function warpTriangle(outCtx, patchCanvas, triLatLng, triNet, zoom, originVirtua
     return [px, py];
   });
 
-  // Destination triangle (output SVG space)
-  const dst = triNet;
-
   // Compute affine transform from dst → src (3x3 2D homogeneous)
   const [A, B] = computeAffine(dst, src);
-
-  // Bounding box of destination triangle
-  const dstXs = dst.map(p => p[0]);
-  const dstYs = dst.map(p => p[1]);
-  const x0 = Math.floor(Math.min(...dstXs));
-  const x1 = Math.ceil(Math.max(...dstXs));
-  const y0 = Math.floor(Math.min(...dstYs));
-  const y1 = Math.ceil(Math.max(...dstYs));
-
-  const W = x1 - x0;
-  const H = y1 - y0;
-  if (W <= 0 || H <= 0) return;
 
   // Create a small canvas for this triangle region
   const triCanvas = createCanvas(W, H);
