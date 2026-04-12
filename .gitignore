@@ -2,5 +2,6 @@ node_modules/
 dymaxion-earth/node_modules/
 dymaxion-earth/tile-cache/
 dymaxion-earth/output/
+dymaxion-earth/world-map.jpg
 *.log
 .DS_Store

@@ -29,7 +29,6 @@
     min-height: 100vh;
   }
 
-  /* ── Layout ─────────────────────────────── */
   .app { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
 
   header {
@@ -47,13 +46,8 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  header p {
-    color: var(--muted);
-    margin-top: 6px;
-    font-size: 0.95rem;
-  }
+  header p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
 
-  /* ── Card ────────────────────────────────── */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -70,7 +64,6 @@
     margin-bottom: 18px;
   }
 
-  /* ── Controls ────────────────────────────── */
   .control-row {
     display: flex;
     align-items: center;
@@ -78,10 +71,7 @@
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
-  .control-row label {
-    font-weight: 500;
-    min-width: 130px;
-  }
+  .control-row label { font-weight: 500; min-width: 130px; }
 
   input[type="range"] {
     -webkit-appearance: none;
@@ -124,6 +114,22 @@
   .estimate-block strong { color: var(--text); }
   .estimate-note { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
 
+  .worldmap-status {
+    background: rgba(61,220,132,0.06);
+    border: 1px solid rgba(61,220,132,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: var(--success);
+    display: none;
+  }
+  .worldmap-status.missing {
+    background: rgba(255,179,71,0.07);
+    border-color: rgba(255,179,71,0.25);
+    color: var(--warn);
+  }
+
   .check-row {
     display: flex;
     align-items: center;
@@ -135,7 +141,6 @@
   .check-row input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
   .check-row label { cursor: pointer; }
 
-  /* ── Generate button ──────────────────────── */
   #generateBtn {
     display: block;
     width: 100%;
@@ -154,7 +159,6 @@
   #generateBtn:active:not(:disabled) { transform: translateY(0); }
   #generateBtn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-  /* ── Progress ────────────────────────────── */
   #progressPanel { display: none; }
 
   .phase-label {
@@ -165,7 +169,6 @@
     margin-bottom: 8px;
     font-weight: 600;
   }
-
   .progress-bar-wrap {
     background: var(--border);
     border-radius: 6px;
@@ -180,7 +183,6 @@
     transition: width 0.3s ease;
     width: 0%;
   }
-
   .status-text { color: var(--muted); font-size: 0.88rem; margin-bottom: 6px; }
   .counters { display: flex; gap: 20px; font-size: 0.82rem; color: var(--muted); flex-wrap: wrap; }
   .counters span strong { color: var(--text); }
@@ -196,9 +198,7 @@
     display: none;
   }
 
-  /* ── Preview ─────────────────────────────── */
   #previewPanel { display: none; }
-
   #previewImg {
     width: 100%;
     max-width: 100%;
@@ -209,12 +209,7 @@
     margin-bottom: 16px;
   }
 
-  .action-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
+  .action-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
   .btn {
     padding: 9px 18px;
     border-radius: 7px;
@@ -234,33 +229,10 @@
   .btn.primary { background: rgba(74,158,255,0.15); border-color: rgba(74,158,255,0.4); color: var(--accent2); }
   .btn.primary:hover { background: rgba(74,158,255,0.25); }
 
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
-    margin-top: 4px;
-  }
-  .stat-box {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-  }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
+  .stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
   .stat-box .val { font-size: 1.3rem; font-weight: 700; color: var(--accent2); }
   .stat-box .lbl { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-
-  /* ── Misc ────────────────────────────────── */
-  #svgFallbackNote {
-    background: rgba(255,179,71,0.08);
-    border: 1px solid rgba(255,179,71,0.25);
-    color: var(--warn);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    margin-bottom: 16px;
-    display: none;
-  }
 </style>
 </head>
 <body>
@@ -268,16 +240,14 @@
 
   <header>
     <h1>Dymaxion Earth</h1>
-    <p>Fuller projection with ESRI World Imagery satellite tiles</p>
+    <p>Fuller projection with NASA Blue Marble satellite imagery</p>
   </header>
 
   <!-- Controls -->
   <div class="card" id="controlsPanel">
     <h2>Configuration</h2>
 
-    <div id="svgFallbackNote">
-      ⚠ node-canvas is not available — generating SVG-only output (no PNG preview).
-    </div>
+    <div class="worldmap-status" id="worldMapStatus"></div>
 
     <div class="control-row">
       <label for="levelSlider">Subdivision level</label>
@@ -286,18 +256,13 @@
     </div>
 
     <div class="estimate-block" id="estimateBlock">
-      <div>Estimated time: <strong id="estimateTime">~30 seconds</strong> &nbsp;·&nbsp; fetching ~<strong id="estimateTiles">280</strong> tiles</div>
-      <div class="estimate-note">Cached tiles will be reused — repeated runs are much faster.</div>
-    </div>
-
-    <div class="check-row">
-      <input type="checkbox" id="cacheCheck" checked>
-      <label for="cacheCheck">Use cached tiles if available</label>
+      <div>Estimated time: <strong id="estimateTime">~6 seconds</strong></div>
+      <div class="estimate-note" id="estimateNote">Renders from a single preloaded world map — no per-tile fetching.</div>
     </div>
 
     <div class="check-row">
       <input type="checkbox" id="meshCheck" checked>
-      <label for="meshCheck">Show triangle mesh in SVG output</label>
+      <label for="meshCheck">Show triangle mesh overlay in SVG</label>
     </div>
 
     <button id="generateBtn">Generate Map</button>
@@ -306,12 +271,11 @@
   <!-- Progress -->
   <div class="card" id="progressPanel">
     <h2>Progress</h2>
-    <div class="phase-label" id="phaseLabel">Initializing...</div>
+    <div class="phase-label" id="phaseLabel">Initializing…</div>
     <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
-    <div class="status-text" id="statusText">Starting...</div>
+    <div class="status-text" id="statusText">Starting…</div>
     <div class="counters">
-      <span>Tiles: <strong id="cntTiles">0</strong> / <strong id="cntTilesTotal">?</strong></span>
-      <span>Triangles: <strong id="cntTris">0</strong> / <strong id="cntTrisTotal">?</strong></span>
+      <span>Faces: <strong id="cntTris">0</strong> / <strong id="cntTrisTotal">?</strong></span>
       <span>Elapsed: <strong id="cntElapsed">0s</strong></span>
     </div>
     <div class="error-msg" id="errorMsg"></div>
@@ -332,95 +296,94 @@
 </div>
 
 <script>
-const TRI_COUNTS = { 1: 20, 2: 80, 3: 320, 4: 1280, 5: 5120 };
-const TILE_EST   = { 1: 80, 2: 280, 3: 1100, 4: 4200, 5: 16000 };
-const OVERHEAD_S = { 1: 2,  2: 5,   3: 15,   4: 60,   5: 240 };
+const TRI_COUNTS   = { 1: 20, 2: 80, 3: 320, 4: 1280, 5: 5120 };
+const RENDER_EST_S = { 1: 3,  2: 6,  3: 14,  4: 35,   5: 90 };
 
-const levelSlider   = document.getElementById('levelSlider');
-const triCountBadge = document.getElementById('triCountBadge');
-const estimateTime  = document.getElementById('estimateTime');
-const estimateTiles = document.getElementById('estimateTiles');
-const generateBtn   = document.getElementById('generateBtn');
-const cacheCheck    = document.getElementById('cacheCheck');
-const meshCheck     = document.getElementById('meshCheck');
-const progressPanel = document.getElementById('progressPanel');
-const previewPanel  = document.getElementById('previewPanel');
-const controlsPanel = document.getElementById('controlsPanel');
+const levelSlider    = document.getElementById('levelSlider');
+const triCountBadge  = document.getElementById('triCountBadge');
+const estimateTime   = document.getElementById('estimateTime');
+const estimateNote   = document.getElementById('estimateNote');
+const generateBtn    = document.getElementById('generateBtn');
+const meshCheck      = document.getElementById('meshCheck');
+const progressPanel  = document.getElementById('progressPanel');
+const previewPanel   = document.getElementById('previewPanel');
+const controlsPanel  = document.getElementById('controlsPanel');
+const phaseLabel     = document.getElementById('phaseLabel');
+const progressBar    = document.getElementById('progressBar');
+const statusText     = document.getElementById('statusText');
+const cntTris        = document.getElementById('cntTris');
+const cntTrisTotal   = document.getElementById('cntTrisTotal');
+const cntElapsed     = document.getElementById('cntElapsed');
+const errorMsg       = document.getElementById('errorMsg');
+const previewImg     = document.getElementById('previewImg');
+const dlSvg          = document.getElementById('dlSvg');
+const dlPng          = document.getElementById('dlPng');
+const statsGrid      = document.getElementById('statsGrid');
+const newMapBtn      = document.getElementById('newMapBtn');
+const worldMapStatus = document.getElementById('worldMapStatus');
 
-const phaseLabel  = document.getElementById('phaseLabel');
-const progressBar = document.getElementById('progressBar');
-const statusText  = document.getElementById('statusText');
-const cntTiles    = document.getElementById('cntTiles');
-const cntTilesTotal = document.getElementById('cntTilesTotal');
-const cntTris     = document.getElementById('cntTris');
-const cntTrisTotal = document.getElementById('cntTrisTotal');
-const cntElapsed  = document.getElementById('cntElapsed');
-const errorMsg    = document.getElementById('errorMsg');
-
-const previewImg  = document.getElementById('previewImg');
-const dlSvg       = document.getElementById('dlSvg');
-const dlPng       = document.getElementById('dlPng');
-const statsGrid   = document.getElementById('statsGrid');
-const newMapBtn   = document.getElementById('newMapBtn');
-const svgFallbackNote = document.getElementById('svgFallbackNote');
-
-// ── Update estimates on slider change ──────────────────────────────────────
-function updateEstimates() {
-  const lv = parseInt(levelSlider.value);
-  const tris = TRI_COUNTS[lv] || 20;
-  const tiles = TILE_EST[lv] || 80;
-  const secs = Math.round(tiles * 0.1 + (OVERHEAD_S[lv] || 2));
-
-  triCountBadge.textContent = `→ ${tris.toLocaleString()} triangles`;
-
-  let timeStr;
-  if (secs < 60) timeStr = `~${secs} seconds`;
-  else if (secs < 3600) timeStr = `~${Math.ceil(secs/60)} minutes`;
-  else timeStr = `~${(secs/3600).toFixed(1)} hours`;
-
-  estimateTime.textContent = timeStr;
-  estimateTiles.textContent = tiles.toLocaleString();
+// ── Estimates ────────────────────────────────────────────────────────────────
+function fmtTime(s) {
+  if (s < 60)   return `~${s} seconds`;
+  if (s < 3600) return `~${Math.ceil(s/60)} minutes`;
+  return `~${(s/3600).toFixed(1)} hours`;
 }
+
+async function updateEstimates() {
+  const lv   = parseInt(levelSlider.value);
+  const tris = TRI_COUNTS[lv] || 20;
+  const secs = RENDER_EST_S[lv] || 3;
+  triCountBadge.textContent = `→ ${tris.toLocaleString()} triangles`;
+  estimateTime.textContent  = fmtTime(secs);
+
+  try {
+    const r = await fetch(`/estimate?level=${lv}`);
+    const d = await r.json();
+    if (d.worldMapReady) {
+      worldMapStatus.className   = 'worldmap-status';
+      worldMapStatus.textContent = '✓ World map cached locally (NASA Blue Marble 5400×2700)';
+      worldMapStatus.style.display = 'block';
+      estimateNote.textContent = 'Renders pixel-by-pixel from the preloaded world map.';
+    } else {
+      worldMapStatus.className   = 'worldmap-status missing';
+      worldMapStatus.textContent = '⬇ First run: ~20 MB world map download required (once only)';
+      worldMapStatus.style.display = 'block';
+      estimateNote.textContent = 'First run adds ~30 s for the world map download (cached after that).';
+    }
+  } catch (_) {}
+}
+
 levelSlider.addEventListener('input', updateEstimates);
 updateEstimates();
 
-// ── Check canvas availability ───────────────────────────────────────────────
-fetch('/estimate?level=1').catch(() => {});
-
-// ── Generate ────────────────────────────────────────────────────────────────
+// ── Generation ────────────────────────────────────────────────────────────────
 let elapsedInterval = null;
 let startTime = null;
 let currentEvtSource = null;
 
-generateBtn.addEventListener('click', () => {
-  startGeneration();
-});
-
+generateBtn.addEventListener('click', startGeneration);
 newMapBtn.addEventListener('click', () => {
-  previewPanel.style.display = 'none';
+  previewPanel.style.display  = 'none';
   controlsPanel.style.display = 'block';
-  generateBtn.disabled = false;
+  generateBtn.disabled        = false;
   progressPanel.style.display = 'none';
-  progressBar.style.width = '0%';
-  errorMsg.style.display = 'none';
+  progressBar.style.width     = '0%';
+  errorMsg.style.display      = 'none';
 });
 
 function startGeneration() {
-  const level = parseInt(levelSlider.value);
-  const useCache = cacheCheck.checked;
+  const level    = parseInt(levelSlider.value);
   const showMesh = meshCheck.checked;
 
-  generateBtn.disabled = true;
+  generateBtn.disabled        = true;
   progressPanel.style.display = 'block';
-  previewPanel.style.display = 'none';
-  errorMsg.style.display = 'none';
-  phaseLabel.textContent = 'Initializing...';
-  progressBar.style.width = '0%';
-  statusText.textContent = 'Connecting...';
-  cntTiles.textContent = '0';
-  cntTilesTotal.textContent = '?';
-  cntTris.textContent = '0';
-  cntTrisTotal.textContent = '?';
+  previewPanel.style.display  = 'none';
+  errorMsg.style.display      = 'none';
+  phaseLabel.textContent      = 'Initializing…';
+  progressBar.style.width     = '0%';
+  statusText.textContent      = 'Connecting…';
+  cntTris.textContent         = '0';
+  cntTrisTotal.textContent    = '?';
 
   startTime = Date.now();
   if (elapsedInterval) clearInterval(elapsedInterval);
@@ -429,51 +392,42 @@ function startGeneration() {
     cntElapsed.textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
   }, 1000);
 
-  const url = `/generate?level=${level}&cache=${useCache}&mesh=${showMesh}`;
   if (currentEvtSource) currentEvtSource.close();
-  const es = new EventSource(url);
+  const es = new EventSource(`/generate?level=${level}&mesh=${showMesh}`);
   currentEvtSource = es;
 
-  es.onmessage = (e) => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-    handleMessage(msg);
+  es.onmessage = e => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    handleMsg(msg);
   };
-
   es.onerror = () => {
     clearInterval(elapsedInterval);
-    showError('Connection lost. Check server console for details.');
+    showError('Connection lost — check server console.');
     generateBtn.disabled = false;
     es.close();
   };
 }
 
-function handleMessage(msg) {
+function handleMsg(msg) {
   switch (msg.type) {
     case 'start':
-      statusText.textContent = `Starting level ${msg.level} generation...`;
+      statusText.textContent = `Starting level ${msg.level} generation…`;
       break;
-
     case 'info':
-      if (msg.totalTiles !== undefined) cntTilesTotal.textContent = msg.totalTiles.toLocaleString();
-      if (msg.totalTris !== undefined)  cntTrisTotal.textContent  = msg.totalTris.toLocaleString();
-      if (msg.canvasMode === false)     svgFallbackNote.style.display = 'block';
+      if (msg.totalTris !== undefined) cntTrisTotal.textContent = msg.totalTris.toLocaleString();
       break;
-
     case 'progress':
-      phaseLabel.textContent  = msg.phase || '';
+      phaseLabel.textContent  = msg.phase  || '';
       progressBar.style.width = `${msg.pct}%`;
       statusText.textContent  = msg.status || '';
-      if (msg.tilesFetched !== undefined) cntTiles.textContent = msg.tilesFetched.toLocaleString();
-      if (msg.trisDone !== undefined)     cntTris.textContent  = msg.trisDone.toLocaleString();
+      if (msg.trisDone   !== undefined) cntTris.textContent = msg.trisDone.toLocaleString();
       break;
-
     case 'done':
       clearInterval(elapsedInterval);
       currentEvtSource && currentEvtSource.close();
       showResult(msg);
+      updateEstimates();   // refresh world-map status badge
       break;
-
     case 'error':
       clearInterval(elapsedInterval);
       currentEvtSource && currentEvtSource.close();
@@ -484,37 +438,33 @@ function handleMessage(msg) {
 }
 
 function showResult(msg) {
-  progressPanel.style.display = 'none';
-  previewPanel.style.display = 'block';
-  generateBtn.disabled = false;
+  progressPanel.style.display  = 'none';
+  previewPanel.style.display   = 'block';
+  generateBtn.disabled         = false;
 
-  // PNG preview
   if (msg.pngFile) {
-    previewImg.src = `/output/${msg.pngFile}?t=${Date.now()}`;
+    previewImg.src    = `/output/${msg.pngFile}?t=${Date.now()}`;
     previewImg.style.display = 'block';
-    dlPng.href = `/output/${msg.pngFile}`;
-    dlPng.download = msg.pngFile;
+    dlPng.href        = `/output/${msg.pngFile}`;
+    dlPng.download    = msg.pngFile;
     dlPng.style.display = '';
   } else {
     previewImg.style.display = 'none';
     dlPng.style.display = 'none';
   }
 
-  // SVG download
-  dlSvg.href = `/output/${msg.svgFile}`;
+  dlSvg.href     = `/output/${msg.svgFile}`;
   dlSvg.download = msg.svgFile;
 
-  // Stats
-  const elapsedS = Math.round(msg.elapsedMs / 1000);
-  const elapsedStr = elapsedS < 60 ? `${elapsedS}s` : `${Math.floor(elapsedS/60)}m ${elapsedS%60}s`;
-  const svgMB = (msg.svgSize / 1024 / 1024).toFixed(2);
-  const pngMB = msg.pngSize ? (msg.pngSize / 1024 / 1024).toFixed(2) : null;
+  const elS   = Math.round((msg.elapsedMs || 0) / 1000);
+  const elStr = elS < 60 ? `${elS}s` : `${Math.floor(elS/60)}m ${elS%60}s`;
+  const svgMB = ((msg.svgSize || 0) / 1024 / 1024).toFixed(2);
+  const pngMB = msg.pngSize ? ((msg.pngSize) / 1024 / 1024).toFixed(2) : null;
 
   const stats = [
-    { val: (msg.totalTris||0).toLocaleString(), lbl: 'Triangles' },
-    { val: (msg.tilesFetched||0).toLocaleString(), lbl: 'Tiles fetched' },
-    { val: elapsedStr, lbl: 'Time taken' },
-    { val: `${svgMB} MB`, lbl: 'SVG size' },
+    { val: (msg.totalTris || 0).toLocaleString(), lbl: 'Triangles' },
+    { val: elStr,                                  lbl: 'Time taken' },
+    { val: `${svgMB} MB`,                          lbl: 'SVG size' },
   ];
   if (pngMB) stats.push({ val: `${pngMB} MB`, lbl: 'PNG size' });
 
@@ -525,7 +475,7 @@ function showResult(msg) {
 
 function showError(msg) {
   errorMsg.style.display = 'block';
-  errorMsg.textContent = '✖ Error: ' + msg;
+  errorMsg.textContent   = '✖ Error: ' + msg;
 }
 </script>
 </body>
