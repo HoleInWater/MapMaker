@@ -29,13 +29,10 @@ const TILE_DELAY_MS = 50; // minimum ms between requests
 // ─── Tile math ───────────────────────────────────────────────────────────────
 
 /**
- * Choose zoom level based on subdivision level.
- * Bumped up by 1 vs. original for sharper imagery.
+ * Tile zoom level — fixed at 5 for all subdivision levels.
  */
-function zoomForLevel(subdivLevel) {
-  if (subdivLevel <= 2) return 5;
-  if (subdivLevel === 3) return 6;
-  return 7;
+function zoomForLevel(_subdivLevel) {
+  return 5;
 }
 
 /**
@@ -96,13 +93,54 @@ function latToTileY(lat, zoom) {
 function getTriangleTiles(triLatLng, zoom) {
   const n = Math.pow(2, zoom);
 
-  // Compute gx in tile-column units for each vertex
-  const gxTile = triLatLng.map(([, lng]) => (lng + 180) / 360 * n);
+  // ── Compute centroid lat/lng (antimeridian-safe lng averaging) ──────────
+  const lats = triLatLng.map(([lat]) => lat);
+  const lngs = triLatLng.map(([, lng]) => lng);
+  // Unwrap lngs relative to vertex 0 before averaging so a triangle whose
+  // vertices straddle ±180° gets a sensible centroid lng.
+  const refLng = lngs[0];
+  const unwrappedLngs = lngs.map(lng => {
+    let d = lng - refLng;
+    if (d >  180) d -= 360;
+    if (d < -180) d += 360;
+    return refLng + d;
+  });
+  const centroidLat = lats.reduce((s, v) => s + v, 0) / 3;
+  // Normalise back to [-180, 180]
+  let centroidLng = unwrappedLngs.reduce((s, v) => s + v, 0) / 3;
+  centroidLng = ((centroidLng % 360) + 540) % 360 - 180;
 
-  // Unwrap so all gx values are within ±n/2 of the first vertex.
-  // This converts an antimeridian-spanning triangle from e.g.
-  //   [0.2, 15.8, 8.0]  →  [0.2, -0.2, 8.0]
-  // ensuring vtxMin..vtxMax is a tight, contiguous range.
+  // ── Polar-face override ─────────────────────────────────────────────────
+  // Near the poles, Web-Mercator longitude lines converge so the three vertex
+  // lngs can span up to 360°.  The unwrapping logic below would generate a
+  // vtx range covering the entire globe → wrong tiles, stripe artifacts.
+  // Fix: replace the vertex-derived bbox with a tight 10°×10° box centred on
+  // the face centroid.  At |lat| > 60° this is always small enough to be
+  // non-crossing and fits within a handful of tiles.
+  if (Math.abs(centroidLat) > 60) {
+    const boxLat0 = Math.max(-85, centroidLat - 5);
+    const boxLat1 = Math.min(85,  centroidLat + 5);
+    const boxLng0 = centroidLng - 5;
+    const boxLng1 = centroidLng + 5;
+
+    const tyMin = latToTileY(boxLat1, zoom); // north edge → smaller ty
+    const tyMax = latToTileY(boxLat0, zoom); // south edge → larger ty
+    const txMin = Math.max(0,     Math.floor((boxLng0 + 180) / 360 * n));
+    const txMax = Math.min(n - 1, Math.floor((boxLng1 + 180) / 360 * n));
+
+    const tiles = [];
+    for (let ty = tyMin; ty <= tyMax; ty++) {
+      for (let tx = txMin; tx <= txMax; tx++) {
+        tiles.push({ z: zoom, tx, ty, virtualTx: tx });
+      }
+    }
+    return tiles;
+  }
+
+  // ── Normal (non-polar) path: unwrap gx relative to vertex 0 ─────────────
+  // Converts an antimeridian-spanning triangle, e.g. gx = [0.2, 15.8, 8.0],
+  // into a contiguous range [0.2, -0.2, 8.0] so vtxMin..vtxMax has no gap.
+  const gxTile = triLatLng.map(([, lng]) => (lng + 180) / 360 * n);
   const ref = gxTile[0];
   const unwrapped = gxTile.map(gx => {
     let d = gx - ref;
@@ -114,15 +152,13 @@ function getTriangleTiles(triLatLng, zoom) {
   const vtxMin = Math.floor(Math.min(...unwrapped));
   const vtxMax = Math.floor(Math.max(...unwrapped));
 
-  // Lat bounding box
-  const lats = triLatLng.map(([lat]) => lat);
-  const tyMin = latToTileY(Math.max(...lats), zoom); // north edge → smaller ty
-  const tyMax = latToTileY(Math.min(...lats), zoom); // south edge → larger ty
+  const tyMin = latToTileY(Math.max(...lats), zoom);
+  const tyMax = latToTileY(Math.min(...lats), zoom);
 
   const tiles = [];
   for (let ty = tyMin; ty <= tyMax; ty++) {
     for (let vtx = vtxMin; vtx <= vtxMax; vtx++) {
-      const tx = ((vtx % n) + n) % n; // wrap to valid [0, n)
+      const tx = ((vtx % n) + n) % n;
       tiles.push({ z: zoom, tx, ty, virtualTx: vtx });
     }
   }
