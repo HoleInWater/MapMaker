@@ -11,8 +11,8 @@ const PHI = (1 + Math.sqrt(5)) / 2; // Golden ratio ≈ 1.618
 
 // Fuller-Sadao canonical orientation: rotate all vertices so the icosahedron
 // aligns with Earth's land masses as in the published Dymaxion map.
-const FULLER_LNG_DEG = -58.28; // 58.28° west
-const FULLER_LAT_DEG =  -2.0;  // 2° south
+const FULLER_LNG_DEG = -168.0; // 168° west (Fuller-Sadao canonical)
+const FULLER_LAT_DEG =   0.0;  // no latitude offset
 
 /**
  * Shift a unit-sphere vertex by the Fuller-Sadao orientation offsets.
