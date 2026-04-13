@@ -159,41 +159,33 @@ function triangleBBox(tri) {
 
 /**
  * Pre-computed 2D vertex positions for each of the 20 icosahedron faces in the
- * canonical Fuller/Dymaxion net, produced by edge-unfolding the icosahedron
- * using a spanning tree that mirrors the d3-geo-polygon airocean layout.
+ * canonical Fuller/Dymaxion net layout on a 5400×2700 canvas.
  *
- * FACE_NET_POS[faceIndex][j] = [x, y] in "edge-length" units (1 unit = 1 edge).
- * Vertex ordering matches ICOSAHEDRON_FACES: position j corresponds to sphere
- * vertex ICOSAHEDRON_FACES[faceIndex][j].
- *
- * Spanning tree (child → parent, shared sphere-vertex pair):
- *   F1→F0 {0,8}  F2→F1 {0,4}   F3→F2 {0,5}   F4→F3 {0,9}
- *   F7→F1 {4,8}  F6→F7 {8,10}  F8→F7 {4,10}  F5→F6 {6,8}
- *   F19→F6 {6,10} F9→F8 {2,4}  F10→F9 {2,5}  F11→F10 {5,11}
- *   F12→F11 {9,11} F13→F12 {7,9} F14→F13 {1,7} F15→F14 {6,7}
- *   F16→F12 {7,11} F17→F10 {2,11} F18→F17 {3,2}
+ * Derived from FULLER_FACES: circumradius=310, base angles [270,30,150] (up)
+ * or [90,210,330] (down), plus per-face rotation. Vertex j corresponds to
+ * sphere vertex ICOSAHEDRON_FACES[faceIndex][j].
  */
 const FACE_NET_POS = [
-  [[ 0.000000, 0.577350],[-0.500000,-0.288675],[ 0.500000,-0.288675]], // F0
-  [[ 0.000000, 0.577350],[ 0.500000,-0.288675],[ 1.000000, 0.577350]], // F1
-  [[ 0.000000, 0.577350],[ 1.000000, 0.577350],[ 0.500000, 1.443376]], // F2
-  [[ 0.000000, 0.577350],[ 0.500000, 1.443376],[-0.500000, 1.443376]], // F3
-  [[ 0.000000, 0.577350],[-0.500000, 1.443376],[-1.000000, 0.577350]], // F4
-  [[ 0.000000,-1.154701],[ 1.000000,-1.154701],[ 0.500000,-0.288675]], // F5
-  [[ 0.500000,-0.288675],[ 1.000000,-1.154701],[ 1.500000,-0.288675]], // F6
-  [[ 0.500000,-0.288675],[ 1.500000,-0.288675],[ 1.000000, 0.577350]], // F7
-  [[ 1.000000, 0.577350],[ 1.500000,-0.288675],[ 2.000000, 0.577350]], // F8
-  [[ 1.000000, 0.577350],[ 2.000000, 0.577350],[ 1.500000, 1.443376]], // F9
-  [[ 1.500000, 1.443376],[ 2.000000, 0.577350],[ 2.500000, 1.443376]], // F10
-  [[ 1.500000, 1.443376],[ 2.500000, 1.443376],[ 2.000000, 2.309401]], // F11
-  [[ 2.000000, 2.309401],[ 2.500000, 1.443376],[ 3.000000, 2.309401]], // F12
-  [[ 2.000000, 2.309401],[ 3.000000, 2.309401],[ 2.500000, 3.175426]], // F13
-  [[ 2.500000, 3.175426],[ 3.000000, 2.309401],[ 3.500000, 3.175426]], // F14
-  [[ 4.000000, 2.309401],[ 3.500000, 3.175426],[ 3.000000, 2.309401]], // F15
-  [[ 3.500000, 1.443376],[ 3.000000, 2.309401],[ 2.500000, 1.443376]], // F16
-  [[ 3.000000, 0.577350],[ 2.500000, 1.443376],[ 2.000000, 0.577350]], // F17
-  [[ 3.000000, 0.577350],[ 2.000000, 0.577350],[ 2.500000,-0.288675]], // F18
-  [[ 2.000000,-1.154701],[ 1.500000,-0.288675],[ 1.000000,-1.154701]], // F19
+  [[1483.468,407],[1215,872],[946.532,407]],          // F0
+  [[1485,252],[1753.468,717],[1216.532,717]],          // F1
+  [[2023.468,407],[1755,872],[1486.532,407]],          // F2
+  [[2025,252],[2293.468,717],[1756.532,717]],          // F3
+  [[2563.468,407],[2295,872],[2026.532,407]],          // F4
+  [[1078.468,745],[810,1210],[541.532,745]],           // F5
+  [[1348.468,1055],[811.532,1055],[1080,590]],         // F6
+  [[1618.468,745],[1350,1210],[1081.532,745]],         // F7
+  [[1888.468,1055],[1351.532,1055],[1620,590]],        // F8
+  [[2158.468,745],[1890,1210],[1621.532,745]],         // F9
+  [[2428.468,1055],[1891.532,1055],[2160,590]],        // F10
+  [[2698.468,745],[2430,1210],[2161.532,745]],         // F11
+  [[676.532,1195],[1213.468,1195],[945,1660]],         // F12
+  [[1215,1040],[1483.468,1505],[946.532,1505]],        // F13
+  [[1216.532,1195],[1753.468,1195],[1485,1660]],       // F14
+  [[1755,1040],[2023.468,1505],[1486.532,1505]],       // F15
+  [[1756.532,1195],[2293.468,1195],[2025,1660]],       // F16
+  [[2295,1040],[2563.468,1505],[2026.532,1505]],       // F17
+  [[2296.532,1195],[2833.468,1195],[2565,1660]],       // F18
+  [[2835,1040],[3103.468,1505],[2566.532,1505]],       // F19
 ];
 
 /**
@@ -202,7 +194,7 @@ const FACE_NET_POS = [
  *
  * Each descriptor: {
  *   sphereTri: [[x,y,z],[x,y,z],[x,y,z]],  // 3D sphere triangle
- *   netVerts:  [[x,y],[x,y],[x,y]],          // 2D SVG positions
+ *   netVerts:  [[x,y],[x,y],[x,y]],          // 2D positions (pixels, 5400×2700)
  *   faceIndex: number,                         // parent icosahedron face (0-19)
  *   subIndex:  number,                         // sub-triangle index within face
  * }
@@ -210,17 +202,6 @@ const FACE_NET_POS = [
 function buildNetLayout(level) {
   const verts = makeIcosahedronVertices();
   const baseTriangles = ICOSAHEDRON_FACES.map(([i, j, k]) => [verts[i], verts[j], verts[k]]);
-
-  // Scale FACE_NET_POS to fit the SVG canvas
-  const SVG_W = 2000, SVG_H = 1200, MARGIN = 40;
-  const allX = FACE_NET_POS.flat().map(p => p[0]);
-  const allY = FACE_NET_POS.flat().map(p => p[1]);
-  const minX = Math.min(...allX), maxX = Math.max(...allX);
-  const minY = Math.min(...allY), maxY = Math.max(...allY);
-  const netW = maxX - minX, netH = maxY - minY;
-  const scale = Math.min((SVG_W - 2*MARGIN) / netW, (SVG_H - 2*MARGIN) / netH);
-  const offsetX = (SVG_W - netW * scale) / 2 - minX * scale;
-  const offsetY = (SVG_H - netH * scale) / 2 - minY * scale;
 
   const result = [];
 
@@ -231,11 +212,8 @@ function buildNetLayout(level) {
       faceTris = subdivideOnce(faceTris);
     }
 
-    // Scale the pre-computed 2D vertices for this face into SVG space
-    const parentNetVerts = FACE_NET_POS[fi].map(([x, y]) => [
-      x * scale + offsetX,
-      y * scale + offsetY,
-    ]);
+    // FACE_NET_POS[fi] are already absolute pixel coordinates on the 5400×2700 canvas
+    const parentNetVerts = FACE_NET_POS[fi];
 
     faceTris.forEach((sphereTri, si) => {
       // Barycentric → 2D: map each sphere sub-vertex into the parent face's 2D triangle
