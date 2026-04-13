@@ -158,96 +158,43 @@ function triangleBBox(tri) {
 // ─── Fuller net layout ───────────────────────────────────────────────────────
 
 /**
- * Returns the 2D unfolding positions for the 20 icosahedron faces in the
- * standard Fuller/Dymaxion net layout.
+ * Pre-computed 2D vertex positions for each of the 20 icosahedron faces in the
+ * canonical Fuller/Dymaxion net, produced by edge-unfolding the icosahedron
+ * using a spanning tree that mirrors the d3-geo-polygon airocean layout.
  *
- * Each entry: { col, row, flip }
- *   col, row: grid position in triangle units
- *   flip: true if the triangle points downward in the net
+ * FACE_NET_POS[faceIndex][j] = [x, y] in "edge-length" units (1 unit = 1 edge).
+ * Vertex ordering matches ICOSAHEDRON_FACES: position j corresponds to sphere
+ * vertex ICOSAHEDRON_FACES[faceIndex][j].
  *
- * The net uses a triangular grid where each cell is an equilateral triangle.
- * Unit side = 1. Triangle height = sqrt(3)/2.
- *
- * Layout reference: Fuller's original 1954 Dymaxion map unfolding.
- * We use a simplified 5-column two-row arrangement.
+ * Spanning tree (child → parent, shared sphere-vertex pair):
+ *   F1→F0 {0,8}  F2→F1 {0,4}   F3→F2 {0,5}   F4→F3 {0,9}
+ *   F7→F1 {4,8}  F6→F7 {8,10}  F8→F7 {4,10}  F5→F6 {6,8}
+ *   F19→F6 {6,10} F9→F8 {2,4}  F10→F9 {2,5}  F11→F10 {5,11}
+ *   F12→F11 {9,11} F13→F12 {7,9} F14→F13 {1,7} F15→F14 {6,7}
+ *   F16→F12 {7,11} F17→F10 {2,11} F18→F17 {3,2}
  */
-function getFullerNetLayout() {
-  // Each face descriptor: { faceIndex, col, row, flip }
-  // row 0 = top row (5 upward + 5 downward triangles)
-  // row 1 = bottom row (5 upward + 5 downward triangles)
-  //
-  // We map the 20 ICOSAHEDRON_FACES in order to net positions.
-  // This follows the classic Fuller net geometry.
-
-  const H = Math.sqrt(3) / 2; // triangle height
-
-  // Net positions for each of the 20 faces (indexed to match ICOSAHEDRON_FACES order)
-  // Each: [centerX, centerY, flip]
-  // flip=false = upward triangle (▲), flip=true = downward (▽)
-  // Grid unit = edge length = 1
-  // We'll scale to fit a 2000×1200 viewBox later
-
-  const faces = [
-    // Top row: faces 0–9
-    // 5 "upward" triangles across top, interleaved with 5 "downward"
-    { cx: 0.5,  cy: H*2/3,      flip: false }, // 0
-    { cx: 1.5,  cy: H*2/3,      flip: false }, // 1
-    { cx: 2.5,  cy: H*2/3,      flip: false }, // 2
-    { cx: 3.5,  cy: H*2/3,      flip: false }, // 3
-    { cx: 4.5,  cy: H*2/3,      flip: false }, // 4
-    { cx: 1.0,  cy: H*4/3,      flip: true  }, // 5
-    { cx: 2.0,  cy: H*4/3,      flip: true  }, // 6
-    { cx: 3.0,  cy: H*4/3,      flip: true  }, // 7
-    { cx: 4.0,  cy: H*4/3,      flip: true  }, // 8
-    { cx: 5.0,  cy: H*4/3,      flip: true  }, // 9
-    // Bottom row: faces 10–19
-    { cx: 0.5,  cy: H*2/3 + 2*H, flip: false }, // 10
-    { cx: 1.5,  cy: H*2/3 + 2*H, flip: false }, // 11
-    { cx: 2.5,  cy: H*2/3 + 2*H, flip: false }, // 12
-    { cx: 3.5,  cy: H*2/3 + 2*H, flip: false }, // 13
-    { cx: 4.5,  cy: H*2/3 + 2*H, flip: false }, // 14
-    { cx: 1.0,  cy: H*4/3 + 2*H, flip: true  }, // 15
-    { cx: 2.0,  cy: H*4/3 + 2*H, flip: true  }, // 16
-    { cx: 3.0,  cy: H*4/3 + 2*H, flip: true  }, // 17
-    { cx: 4.0,  cy: H*4/3 + 2*H, flip: true  }, // 18
-    { cx: 5.0,  cy: H*4/3 + 2*H, flip: true  }, // 19
-  ];
-
-  return faces;
-}
-
-/**
- * Get the 2D vertices of a triangle in the Fuller net, given face index and
- * edge length. Returns [[x0,y0],[x1,y1],[x2,y2]] in SVG coordinates.
- *
- * @param {number} faceIndex - 0..19
- * @param {number} edgeLen - edge length in pixels
- * @param {number} offsetX - global x offset
- * @param {number} offsetY - global y offset
- */
-function getFaceNetVertices(faceIndex, edgeLen, offsetX, offsetY) {
-  const layout = getFullerNetLayout();
-  const face = layout[faceIndex];
-  const H = Math.sqrt(3) / 2 * edgeLen;
-  const cx = face.cx * edgeLen + offsetX;
-  const cy = face.cy * edgeLen + offsetY;
-
-  if (!face.flip) {
-    // Upward triangle ▲: apex at top
-    return [
-      [cx,           cy - H * 2/3],
-      [cx - edgeLen/2, cy + H * 1/3],
-      [cx + edgeLen/2, cy + H * 1/3],
-    ];
-  } else {
-    // Downward triangle ▽: apex at bottom
-    return [
-      [cx - edgeLen/2, cy - H * 1/3],
-      [cx + edgeLen/2, cy - H * 1/3],
-      [cx,             cy + H * 2/3],
-    ];
-  }
-}
+const FACE_NET_POS = [
+  [[ 0.000000, 0.577350],[-0.500000,-0.288675],[ 0.500000,-0.288675]], // F0
+  [[ 0.000000, 0.577350],[ 0.500000,-0.288675],[ 1.000000, 0.577350]], // F1
+  [[ 0.000000, 0.577350],[ 1.000000, 0.577350],[ 0.500000, 1.443376]], // F2
+  [[ 0.000000, 0.577350],[ 0.500000, 1.443376],[-0.500000, 1.443376]], // F3
+  [[ 0.000000, 0.577350],[-0.500000, 1.443376],[-1.000000, 0.577350]], // F4
+  [[ 0.000000,-1.154701],[ 1.000000,-1.154701],[ 0.500000,-0.288675]], // F5
+  [[ 0.500000,-0.288675],[ 1.000000,-1.154701],[ 1.500000,-0.288675]], // F6
+  [[ 0.500000,-0.288675],[ 1.500000,-0.288675],[ 1.000000, 0.577350]], // F7
+  [[ 1.000000, 0.577350],[ 1.500000,-0.288675],[ 2.000000, 0.577350]], // F8
+  [[ 1.000000, 0.577350],[ 2.000000, 0.577350],[ 1.500000, 1.443376]], // F9
+  [[ 1.500000, 1.443376],[ 2.000000, 0.577350],[ 2.500000, 1.443376]], // F10
+  [[ 1.500000, 1.443376],[ 2.500000, 1.443376],[ 2.000000, 2.309401]], // F11
+  [[ 2.000000, 2.309401],[ 2.500000, 1.443376],[ 3.000000, 2.309401]], // F12
+  [[ 2.000000, 2.309401],[ 3.000000, 2.309401],[ 2.500000, 3.175426]], // F13
+  [[ 2.500000, 3.175426],[ 3.000000, 2.309401],[ 3.500000, 3.175426]], // F14
+  [[ 4.000000, 2.309401],[ 3.500000, 3.175426],[ 3.000000, 2.309401]], // F15
+  [[ 3.500000, 1.443376],[ 3.000000, 2.309401],[ 2.500000, 1.443376]], // F16
+  [[ 3.000000, 0.577350],[ 2.500000, 1.443376],[ 2.000000, 0.577350]], // F17
+  [[ 3.000000, 0.577350],[ 2.000000, 0.577350],[ 2.500000,-0.288675]], // F18
+  [[ 2.000000,-1.154701],[ 1.500000,-0.288675],[ 1.000000,-1.154701]], // F19
+];
 
 /**
  * Build the complete flat net layout for a given subdivision level.
@@ -264,21 +211,16 @@ function buildNetLayout(level) {
   const verts = makeIcosahedronVertices();
   const baseTriangles = ICOSAHEDRON_FACES.map(([i, j, k]) => [verts[i], verts[j], verts[k]]);
 
-  // SVG layout parameters
-  const SVG_W = 2000;
-  const SVG_H = 1200;
-  const MARGIN = 40;
-
-  // Net spans roughly 5.5 edge-units wide, 4 * H tall
-  const H_UNIT = Math.sqrt(3) / 2;
-  const netWidth = 5.5;    // in edge-units
-  const netHeight = 4 * H_UNIT + 0.5; // in edge-units
-
-  const scaleX = (SVG_W - 2*MARGIN) / netWidth;
-  const scaleY = (SVG_H - 2*MARGIN) / netHeight;
-  const edgeLen = Math.min(scaleX, scaleY);
-  const offsetX = (SVG_W - edgeLen * netWidth) / 2;
-  const offsetY = (SVG_H - edgeLen * netHeight) / 2;
+  // Scale FACE_NET_POS to fit the SVG canvas
+  const SVG_W = 2000, SVG_H = 1200, MARGIN = 40;
+  const allX = FACE_NET_POS.flat().map(p => p[0]);
+  const allY = FACE_NET_POS.flat().map(p => p[1]);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const minY = Math.min(...allY), maxY = Math.max(...allY);
+  const netW = maxX - minX, netH = maxY - minY;
+  const scale = Math.min((SVG_W - 2*MARGIN) / netW, (SVG_H - 2*MARGIN) / netH);
+  const offsetX = (SVG_W - netW * scale) / 2 - minX * scale;
+  const offsetY = (SVG_H - netH * scale) / 2 - minY * scale;
 
   const result = [];
 
@@ -289,17 +231,14 @@ function buildNetLayout(level) {
       faceTris = subdivideOnce(faceTris);
     }
 
-    // Get the 2D net vertices for the parent face
-    const parentNetVerts = getFaceNetVertices(fi, edgeLen, offsetX, offsetY);
-
-    // Map sub-triangles to positions within the parent face net triangle
-    // We need to compute barycentric → 2D for each sub-tri vertex
-    const subCount = faceTris.length; // 4^(level-1)
-    const subSide = Math.sqrt(subCount); // triangles per edge = 2^(level-1)
+    // Scale the pre-computed 2D vertices for this face into SVG space
+    const parentNetVerts = FACE_NET_POS[fi].map(([x, y]) => [
+      x * scale + offsetX,
+      y * scale + offsetY,
+    ]);
 
     faceTris.forEach((sphereTri, si) => {
-      // Compute barycentric of sphere triangle vertices relative to parent face
-      // by projecting them into the parent face's barycentric coords
+      // Barycentric → 2D: map each sphere sub-vertex into the parent face's 2D triangle
       const netVerts = sphereTri.map(sv => {
         const bary = sphereVertexToBary(sv, baseTriangles[fi]);
         return baryToNet(bary, parentNetVerts);
